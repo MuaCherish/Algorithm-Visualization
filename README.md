@@ -1,6 +1,4 @@
 # Algorithm types
----
-
 1. Dijkstra
 2. A*
 3. BFS
