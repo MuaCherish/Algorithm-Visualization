@@ -2,7 +2,7 @@
 1. Dijkstra
 2. A*
 3. BFS
-4. DFS
+~~4. DFS~~
 5. Bellman-Ford
 6. Floyd-Warshall
 7. Bidirectional Search
