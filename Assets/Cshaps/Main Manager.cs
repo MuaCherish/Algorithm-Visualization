@@ -336,7 +336,7 @@ public class MainManager : MonoBehaviour
 
         //初始化
         round.Enqueue(startLocation);
-        Cubes[0, 0].isSearched = true;
+        //Cubes[0, 0].isSearched = true;
 
         //遍历
         while (true)
@@ -352,11 +352,6 @@ public class MainManager : MonoBehaviour
             {
                 //从队列取出一个
                 Vector2 item = round.Dequeue();
-
-                if (item == new Vector2(2, 3))
-                {
-                    print("");
-                }
 
                 //搜索四个方向
                 for (int i = 0; i < 4; i++)
@@ -487,37 +482,6 @@ public class MainManager : MonoBehaviour
         }
     }
 
-    //检查对应方向是否是空气
-    //是空气,返回方向
-    //不是空气，返回(-1,-1)
-    Vector2 CheckWASD(int _x, int _y, int _d)
-    {
-        Vector2 direct = Data.Direction[_d];
-        Vector2 target = new Vector2(_x, _y) + direct;
-
-        //如果没有出界
-        if (!isOutOfBound((int)target.x, (int)target.y))
-        {
-            //判断是否是空气
-            if (Cubes[(int)target.x, (int)target.y].type == TYPE.end)
-            {
-                return new Vector2(-2f, -2f);
-            }
-            else if (Cubes[(int)target.x, (int)target.y].type == TYPE.air)
-            {
-                return direct;
-            }
-            else
-            {
-                return new Vector2(-1, -1);
-            }
-        }
-        else
-        {
-            return new Vector2(-1, -1);
-        }
-
-    }
 
     //射线检测点击UI
     public GameObject GetFirstPickGameObject(Vector2 position)
