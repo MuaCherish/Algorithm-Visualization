@@ -1,19 +1,25 @@
+//using NUnit.Framework;
 using System.Collections;
 using System.Collections.Generic;
-using System.Security.Cryptography.X509Certificates;
+using System.Linq;
+//using System.Security.Cryptography.X509Certificates;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Unity.Burst.Intrinsics.X86.Avx;
 using static UnityEditor.Progress;
 
+//using UnityEngine.UIElements;
+using static UnityEngine.GraphicsBuffer;
+//using static Unity.Burst.Intrinsics.X86.Avx;
+//using static UnityEditor.Progress;
+
 //枚举
-public enum TYPE { air, wall, end , start , isSearched }
+public enum TYPE { air, wall, end, start }
 public enum ClickMode { None, StartMode, EndMode, WallsMode, }
 
 //目前只能通过编辑器来选择
-public enum Algorithms { BFS , DFS, A_star, Dijkstra , Bellman_Ford , Floyd_Warshall , Bidirectional_Search , IDA , Jump_Point_Search , Theta_Star}
+public enum Algorithms { BFS, DFS, A_star, Dijkstra, Bellman_Ford, Floyd_Warshall, Bidirectional_Search, IDA, Jump_Point_Search, Theta_Star }
 
 //Manager
 public class MainManager : MonoBehaviour
@@ -35,6 +41,7 @@ public class MainManager : MonoBehaviour
 
     //Cubes Array
     private cube[,] Cubes;
+    private Dictionary<GameObject, Vector2> CubesPositions;
     private ClickMode clickMode = ClickMode.None;
 
     //数据结构
@@ -49,6 +56,8 @@ public class MainManager : MonoBehaviour
     private bool isFindEnd = false;
     public Algorithms algorithms = Algorithms.BFS;
     public float delay_time = 1f;
+    public List<Vector2> bestWay;
+
 
 
     //////////////////////////////// 生命周期 ////////////////////////////////////////
@@ -105,9 +114,9 @@ public class MainManager : MonoBehaviour
 
 
 
-            
+
         }
-        
+
     }
 
 
@@ -129,12 +138,14 @@ public class MainManager : MonoBehaviour
 
         //初始化数组
         Cubes = new cube[NumberSize, NumberSize];
-        startLocation = new Vector2(-1f,-1f);
+        CubesPositions = new Dictionary<GameObject, Vector2>();
+        startLocation = new Vector2(-1f, -1f);
         endLocation = new Vector2(-1f, -1f);
         wallsLocation = new List<Vector2>();
         clickMode = ClickMode.None;
         isFindEnd = false;
         wintext.text = "";
+        bestWay = new List<Vector2>();
 
         //初始化cube大小
         RectTransform CubesArea_rectTransform = CubesArea.GetComponent<RectTransform>();
@@ -178,7 +189,11 @@ public class MainManager : MonoBehaviour
                 rectTransform.sizeDelta = new Vector2(CubeWidth, CubeWidth);
 
                 //设定Cubes
-                Cubes[x, y] = new cube(cube, new Vector2(x,y), TYPE.air);
+                Cubes[x, y] = new cube(cube, new Vector2(x, y), TYPE.air);
+                //Cubes[x, y].waybackhome.Add(new Vector2(x, y));
+
+                //设置positions
+                CubesPositions.Add(cube, new Vector2(x, y));
 
             }
         }
@@ -195,65 +210,217 @@ public class MainManager : MonoBehaviour
 
     //////////////////////////////// 算法区域 ////////////////////////////////////////
 
-    IEnumerator Algorithm_BFS()
+    //IEnumerator BFS()
+    //{
+    //    //每轮搜索表
+    //    List<Vector2> round = new List<Vector2>();
+    //    List<Vector2> round_next = new List<Vector2>();
+
+    //    //初始化
+    //    round.Add(startLocation);
+    //    Cubes[0, 0].isSearched = true;
+
+    //    //如果搜索表不为空一直循环
+    //    while (round.Count != 0)
+    //    {
+    //        if (isFindEnd)
+    //        {
+    //            break;
+    //        }
+
+    //        //遍历round
+    //        foreach (Vector2 item in round)
+    //        {
+    //            if (isFindEnd)
+    //            {
+    //                break;
+    //            }
+
+
+    //            //搜索上下左右
+    //            for (int d = 0; d < 4; d++)
+    //            {
+    //                Vector2 direct = Data.Direction[d];
+    //                Vector2 target = item + direct;
+
+    //                //如果出界 && isSearch 就跳过
+    //                if (isOutOfBound((int)target.x, (int)target.y) || Cubes[(int)target.x, (int)target.y].isSearched)
+    //                {
+    //                    continue;
+    //                }
+
+    //                cube thisCube = Cubes[(int)item.x, (int)item.y];
+    //                cube targetCube = Cubes[(int)target.x, (int)target.y];
+
+    //                //进行搜索，并添加waybackhome
+    //                if (targetCube.waybackhome.Count == 1)
+    //                {
+    //                    Cubes[(int)target.x, (int)target.y].waybackhome.InsertRange(0, thisCube.waybackhome);
+    //                }
+
+    //                //如果碰到终点则isFinish
+    //                if (targetCube.type == TYPE.end)
+    //                {
+    //                    isFindEnd = true;
+    //                    break;
+    //                }
+
+    //                //碰到空气就添加到下一次寻路队列
+    //                if (targetCube.type == TYPE.air)
+    //                {
+    //                    round_next.Add(target);
+
+    //                    //添加颜色
+    //                    targetCube.cubeObject.GetComponent<Image>().color = Color.gray;
+    //                }
+
+
+    //            }
+
+    //        }
+
+
+    //        //一轮结束
+    //        //添加isSearch
+    //        foreach (Vector2 item in round)
+    //        {
+    //            Cubes[(int)item.x, (int)item.y].isSearched = true;
+    //        }
+
+    //        //round清空
+    //        round.Clear();
+    //        round = round_next.ToList();
+    //        round_next.Clear();
+
+    //        yield return new WaitForSeconds(delay_time);
+    //    }
+
+    //    //是否找到
+    //    if (!isFindEnd)
+    //    {
+    //        wintext.text = " Not Find..";
+    //        wintext.color = Color.red;
+    //        bestWay = new List<Vector2>();
+    //    }
+    //    else
+    //    {
+    //        wintext.color = Color.green;
+    //        bestWay = Cubes[NumberSize - 1, NumberSize - 1].waybackhome.ToList();
+
+    //        //长度没算上首尾
+    //        wintext.text = $"Find!\nlength:{bestWay.Count - 2}";
+
+    //        //走一遍到终点
+    //        foreach (Vector2 item in bestWay)
+    //        {
+    //            if (Cubes[(int)item.x, (int)item.y].type != TYPE.end && Cubes[(int)item.x, (int)item.y].type != TYPE.start)
+    //            {
+    //                Cubes[(int)item.x, (int)item.y].cubeObject.GetComponent<Image>().color = Color.blue;
+    //                yield return new WaitForSeconds(delay_time);
+    //            }
+
+
+    //        }
+
+    //    }
+
+
+    //    yield return null;
+    //}
+
+    IEnumerator BFS()
     {
-        //
-        int live = NumberSize * NumberSize;
+        //变量
+        Queue<Vector2> round = new Queue<Vector2>();
+        Queue<Vector2> round_next = new Queue<Vector2>();
 
-        HashSet<Vector2> waitToCount_previous = new HashSet<Vector2>();
-        HashSet<Vector2> waitToCount_new = new HashSet<Vector2>();
+        //初始化
+        round.Enqueue(startLocation);
+        Cubes[0, 0].isSearched = true;
 
-        //Init
-        waitToCount_previous.Add(startLocation);
-
-        //不停遍历waitToCount直到找到End
-        while (live > 0 || waitToCount_previous.Count != 0)
+        //遍历
+        while (true)
         {
+            //退出端口
             if (isFindEnd)
             {
                 break;
             }
 
-            foreach (Vector2 item in waitToCount_previous)
+            //探索队列未走完不许停
+            while (round.Count != 0)
             {
-                //如果找到终点，则退出
-                if (isFindEnd)
+                //从队列取出一个
+                Vector2 item = round.Dequeue();
+
+                if (item == new Vector2(2, 3))
                 {
-                    break;
+                    print("");
                 }
 
-                //上下左右
-                for (int d = 0; d < 4; d++)
+                //搜索四个方向
+                for (int i = 0; i < 4; i++)
                 {
-                    Vector2 direction = CheckWASD((int)item.x, (int)item.y, d);
+                    //变量
+                    Vector2 direct = Data.Direction[i];
+                    Vector2 target = item + direct;
 
-                    if (direction == new Vector2(-2f, -2f))
+                    //如果出界 && 以搜索 && Wall 则跳过
+                    if (isOutOfBound((int)target.x, (int)target.y) || Cubes[(int)target.x, (int)target.y].isSearched || Cubes[(int)target.x, (int)target.y].type == TYPE.wall)
+                    {
+                        continue;
+                    }
+
+                    cube targetCube = Cubes[(int)target.x, (int)target.y];
+
+                    //如果终点则结束
+                    if (targetCube.type == TYPE.end)
                     {
                         isFindEnd = true;
-                        wintext.text = "Find!";
-                        wintext.color = Color.green;
+                        round_next.Enqueue(target);
+
+                        //设置终点参数
+                        targetCube.Source = item;
+                        targetCube.isSearched = true;
+
                         break;
                     }
 
-                    if (direction != new Vector2(-1, -1))
+                    //如果是空气则加入队列，并改指针
+                    if (targetCube.type == TYPE.air)
                     {
-                        //添加到数据结构
-                        waitToCount_new.Add(item + direction);
+                        //入队
+                        round_next.Enqueue(target);
 
-                        //更新Cubes
-                        Cubes[(int)(item + direction).x, (int)(item + direction).y].type = TYPE.isSearched;
-                        Cubes[(int)(item + direction).x, (int)(item + direction).y].cubeObject.GetComponent<Image>().color = Color.gray;
+                        //改成已搜索
+                        targetCube.isSearched = true;
+
+                        //改指针
+                        targetCube.Source = item;
+
+                        //添加颜色
+                        targetCube.cubeObject.GetComponent<Image>().color = Color.gray;
                     }
+
+
                 }
             }
 
-            //一轮结束
-            waitToCount_previous.Clear();
-            waitToCount_previous.UnionWith(waitToCount_new);
-            waitToCount_new.Clear();
-            live--;
 
-            //delay
+
+
+            //////一轮结束/////
+
+            //跳出条件
+            if (round_next.Count == 0)  //说明没路可走
+            {
+                break;
+            }
+
+            //队列交换
+            round = new Queue<Vector2>(round_next);
+            round_next.Clear();
+
             yield return new WaitForSeconds(delay_time);
         }
 
@@ -262,11 +429,37 @@ public class MainManager : MonoBehaviour
         {
             wintext.text = " Not Find..";
             wintext.color = Color.red;
+            bestWay = new List<Vector2>();
+        }
+        else
+        {
+            //重走一遍还原最短路径
+            Vector2 now = Cubes[(int)endLocation.x, (int)endLocation.y].Source;
+            while (now != startLocation)
+            {
+                //添加到bestWay
+                bestWay.Add(now);
+
+                //更新now
+                now = Cubes[(int)now.x, (int)now.y].Source;
+            }
+
+            //print
+            wintext.color = Color.green;
+            wintext.text = $"Find!\nlength:{bestWay.Count}";
+
+            //画出最短路径
+            bestWay.Reverse();
+            foreach (Vector2 item in bestWay)
+            {
+                Cubes[(int)item.x, (int)item.y].cubeObject.GetComponent<Image>().color = Color.blue;
+
+                yield return new WaitForSeconds(delay_time);
+            }
         }
 
         yield return null;
     }
-
     //////////////////////////////////////////////////////////////////////////////////
 
 
@@ -297,7 +490,7 @@ public class MainManager : MonoBehaviour
     //检查对应方向是否是空气
     //是空气,返回方向
     //不是空气，返回(-1,-1)
-    Vector2 CheckWASD(int _x, int _y,int _d)
+    Vector2 CheckWASD(int _x, int _y, int _d)
     {
         Vector2 direct = Data.Direction[_d];
         Vector2 target = new Vector2(_x, _y) + direct;
@@ -308,7 +501,7 @@ public class MainManager : MonoBehaviour
             //判断是否是空气
             if (Cubes[(int)target.x, (int)target.y].type == TYPE.end)
             {
-                return new Vector2(-2f,-2f);
+                return new Vector2(-2f, -2f);
             }
             else if (Cubes[(int)target.x, (int)target.y].type == TYPE.air)
             {
@@ -359,13 +552,13 @@ public class MainManager : MonoBehaviour
         //Walls
         foreach (Vector2 item in wallsLocation)
         {
-            Cubes[(int)item.x, (int)item.y].type = TYPE.wall;  
+            Cubes[(int)item.x, (int)item.y].type = TYPE.wall;
         }
 
         //选择并执行算法
         switch (algorithms)
         {
-            case Algorithms.BFS:StartCoroutine(Algorithm_BFS()); break;
+            case Algorithms.BFS: StartCoroutine(BFS()); break;
             case Algorithms.DFS: break;
             case Algorithms.A_star: break;
             case Algorithms.Dijkstra: break;
@@ -375,7 +568,7 @@ public class MainManager : MonoBehaviour
             case Algorithms.IDA: break;
             case Algorithms.Jump_Point_Search: break;
             case Algorithms.Floyd_Warshall: break;
-            default:break;
+            default: break;
         }
     }
 
@@ -417,9 +610,11 @@ public class MainManager : MonoBehaviour
             {
                 //点击后
                 GameObject obj = GetFirstPickGameObject(Input.mousePosition);
-                RectTransform rect = obj.GetComponent<RectTransform>();
-                int x = (int)(rect.anchoredPosition.x / rect.sizeDelta.x);
-                int y = (int)(rect.anchoredPosition.y / rect.sizeDelta.y);
+                //RectTransform rect = obj.GetComponent<RectTransform>();
+                //int x = (int)(rect.anchoredPosition.x / rect.sizeDelta.x);
+                //int y = (int)(rect.anchoredPosition.y / rect.sizeDelta.y);
+
+                CubesPositions.TryGetValue(obj, out Vector2 pos);
 
                 //筛选Cube
                 if (obj.transform.parent == CubesArea.transform)
@@ -429,13 +624,13 @@ public class MainManager : MonoBehaviour
                     obj.GetComponent<Image>().color = Color.yellow;
 
                     //赋值
-                    startLocation = new Vector2(x,y);
+                    startLocation = new Vector2(pos.x, pos.y);
                 }
 
                 hasExec_Start = false;
             }
 
-            
+
 
         }
     }
@@ -448,9 +643,11 @@ public class MainManager : MonoBehaviour
             {
                 //点击后
                 GameObject obj = GetFirstPickGameObject(Input.mousePosition);
-                RectTransform rect = obj.GetComponent<RectTransform>();
-                int x = (int)(rect.anchoredPosition.x / rect.sizeDelta.x);
-                int y = (int)(rect.anchoredPosition.y / rect.sizeDelta.y);
+                //RectTransform rect = obj.GetComponent<RectTransform>();
+                //int x = (int)(rect.anchoredPosition.x / rect.sizeDelta.x);
+                //int y = (int)(rect.anchoredPosition.y / rect.sizeDelta.y);
+
+                CubesPositions.TryGetValue(obj, out Vector2 pos);
 
                 //筛选Cube
                 if (obj.transform.parent == CubesArea.transform)
@@ -460,7 +657,7 @@ public class MainManager : MonoBehaviour
                     obj.GetComponent<Image>().color = Color.green;
 
                     //赋值
-                    endLocation = new Vector2(x,y);
+                    endLocation = new Vector2(pos.x, pos.y);
                 }
 
                 hasExec_End = false;
@@ -473,22 +670,24 @@ public class MainManager : MonoBehaviour
     {
         //点击后
         GameObject obj = GetFirstPickGameObject(Input.mousePosition);
-        RectTransform rect = obj.GetComponent<RectTransform>();
-        int x = (int)(rect.anchoredPosition.x / rect.sizeDelta.x);
-        int y = (int)(rect.anchoredPosition.y / rect.sizeDelta.y);
+        //RectTransform rect = obj.GetComponent<RectTransform>();
+        //int x = (int)(rect.anchoredPosition.x / rect.sizeDelta.x);
+        //int y = (int)(rect.anchoredPosition.y / rect.sizeDelta.y);
+
+        CubesPositions.TryGetValue(obj, out Vector2 pos);
 
         //dic不包含 && 属于Cube Area && 不是Start,End
-        if (!wallsLocation.Contains(new Vector2(x,y)) && obj.transform.parent == CubesArea.transform && new Vector2(x,y) != startLocation && new Vector2(x, y) != endLocation)
+        if (!wallsLocation.Contains(new Vector2(pos.x, pos.y)) && obj.transform.parent == CubesArea.transform && new Vector2(pos.x, pos.y) != startLocation && new Vector2(pos.x, pos.y) != endLocation)
         {
             //Debug.Log($"position:{obj.transform.position},xy = {obj.name}");
 
             obj.GetComponent<Image>().color = Color.red;
 
             //添加到dictionary中
-            wallsLocation.Add(new Vector2(x,y));
+            wallsLocation.Add(new Vector2(pos.x, pos.y));
         }
 
-        
+
     }
 
     //////////////////////////////////////////////////////////////////////////////////
@@ -504,15 +703,22 @@ public class MainManager : MonoBehaviour
 
 public class cube
 {
+    //基本参数
     public GameObject cubeObject;
     public Vector2 position;
     public TYPE type;
+
+    //BFS
+    public Vector2 Source;
+    public bool isSearched = false;
 
     public cube(GameObject obj, Vector2 pos, TYPE t)
     {
         cubeObject = obj;
         position = pos;
         type = t;
+
     }
+
 }
 
